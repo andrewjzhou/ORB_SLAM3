@@ -12,20 +12,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -march=native")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
 
-# Check C++11 or C++0x support
+# Check C++17 support (required by depthai)
 include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
-if(COMPILER_SUPPORTS_CXX11)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
+if(COMPILER_SUPPORTS_CXX17)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
    add_definitions(-DCOMPILEDWITHC11)
-   message(STATUS "Using flag -std=c++11.")
-elseif(COMPILER_SUPPORTS_CXX0X)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-   add_definitions(-DCOMPILEDWITHC0X)
-   message(STATUS "Using flag -std=c++0x.")
+   message(STATUS "Using flag -std=c++17.")
 else()
-   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 support. Please use a different C++ compiler.")
 endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
@@ -41,6 +36,7 @@ MESSAGE(${OpenCV_VERSION})
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(realsense2)
+find_package(depthai CONFIG)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -266,6 +262,57 @@ if(realsense2_FOUND)
     add_executable(recorder_realsense_T265
             Examples/Calibration/recorder_realsense_T265.cc)
     target_link_libraries(recorder_realsense_T265 ${PROJECT_NAME})
+endif()
+
+if(depthai_FOUND)
+    add_executable(recorder_oakd_lite
+            Examples/Calibration/recorder_oakd_lite.cc)
+    target_link_libraries(recorder_oakd_lite depthai::core)
+    target_compile_features(recorder_oakd_lite PRIVATE cxx_std_17)
+endif()
+
+# INDEMIND IMSEE-SDK (stereo-inertial camera)
+# libindemind.so was built against OpenCV 3.4. We build a minimal OpenCV 3.4
+# from source into /home/andrew/Dev/opencv_3.4/ (isolated, no system impact).
+set(IMSEE_SDK_ROOT  "/home/andrew/Dev/IMSEE-SDK" CACHE PATH "Path to INDEMIND IMSEE-SDK")
+set(OPENCV34_ROOT   "/home/andrew/Dev/opencv_3.4"  CACHE PATH "OpenCV 3.4 install root (isolated, built from source)")
+if(EXISTS "${IMSEE_SDK_ROOT}/include/imrsdk.h")
+    set(IMSEE_SDK_LIB  "${IMSEE_SDK_ROOT}/lib/others/x64-opencv3.4.3/libindemind.so")
+    set(IMSEE_MNN_LIB  "${IMSEE_SDK_ROOT}/src/detector/lib/x86-64/libMNN.so")
+    # Link exclusively against OpenCV 3.4 so there is only one OpenCV in the
+    # process. Mixing 3.4 (libindemind.so) + 4.x (our code) causes symbol
+    # conflicts that crash imshow on grayscale images.
+    set(OPENCV34_LIBS
+        "${OPENCV34_ROOT}/lib/libopencv_highgui.so.3.4"
+        "${OPENCV34_ROOT}/lib/libopencv_imgproc.so.3.4"
+        "${OPENCV34_ROOT}/lib/libopencv_core.so.3.4"
+    )
+    add_executable(recorder_indemind Examples/Calibration/recorder_indemind.cc)
+    target_include_directories(recorder_indemind PRIVATE
+        "${IMSEE_SDK_ROOT}/include"
+        "${OPENCV34_ROOT}/include"
+    )
+    target_link_libraries(recorder_indemind
+        ${OPENCV34_LIBS}
+        ${IMSEE_SDK_LIB}
+        ${IMSEE_MNN_LIB}
+        pthread
+    )
+    # --disable-new-dtags embeds DT_RPATH (not DT_RUNPATH) so the paths
+    # propagate transitively to libindemind.so's own deps at runtime.
+    target_link_options(recorder_indemind PRIVATE
+        "-Wl,--allow-shlib-undefined"
+        "-Wl,--disable-new-dtags"
+    )
+    # Embed RPATHs so the binary finds all SDK libs at runtime without LD_LIBRARY_PATH.
+    # All OpenCV comes from our isolated 3.4 build — no system OpenCV loaded.
+    set_target_properties(recorder_indemind PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_RPATH "${IMSEE_SDK_ROOT}/lib/others/x64-opencv3.4.3:${IMSEE_SDK_ROOT}/src/detector/lib/x86-64:${OPENCV34_ROOT}/lib"
+    )
+    message(STATUS "INDEMIND IMSEE-SDK found — building recorder_indemind")
+else()
+    message(STATUS "INDEMIND IMSEE-SDK not found at ${IMSEE_SDK_ROOT} — skipping recorder_indemind")
 endif()
 
 #Old examples

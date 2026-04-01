@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.sunday.ai)",
+      "WebFetch(domain:imsee-sdk-docs.readthedocs.io)",
+      "Bash(gh api:*)",
+      "Bash(pkg-config --modversion opencv4)",
+      "Read(//home/andrew/Dev/IMSEE-SDK/**)",
+      "Bash(ldd /home/andrew/Dev/IMSEE-SDK/lib/x86-64/libindemind.so)",
+      "Bash(ldd:*)",
+      "Bash(cat /home/andrew/Dev/IMSEE-SDK/scripts/*.sh)",
+      "Bash(find /home/andrew/Dev/IMSEE-SDK -name libMNN*)",
+      "Bash(find /home/andrew/Dev/IMSEE-SDK -name *.so)",
+      "Read(//usr/lib/x86_64-linux-gnu/**)",
+      "Bash(mkdir -p build)",
+      "Bash(cmake .. -DCMAKE_BUILD_TYPE=Release)",
+      "Bash(nm -D /home/andrew/Dev/IMSEE-SDK/lib/others/x64-opencv3.4.3/libindemind.so)",
+      "Bash(objdump -p /home/andrew/Dev/IMSEE-SDK/lib/others/x64-opencv3.4.3/libindemind.so)",
+      "Bash(readelf -s /home/andrew/Dev/IMSEE-SDK/lib/others/x64-opencv3.4.3/libindemind.so)",
+      "Bash(pkg-config --exists gtk+-3.0)",
+      "Bash(pkg-config --exists gtk+-2.0)",
+      "Bash(dpkg -l)"
+    ]
+  }
+}
