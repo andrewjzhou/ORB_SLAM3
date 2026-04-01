@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <array>
 #include <vector>
+#include <cmath>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -99,6 +100,26 @@ int main(int argc, char **argv) {
     }
     cout << "INDEMIND SDK initialized. Saving to: " << directory << endl;
 
+    // --- Dump device calibration params (confirms IMU output units) ---
+    {
+        auto p = sdk->GetModuleParams();
+        auto& im = p._imu;
+        cout << "=== Device IMU Params ===\n"
+             << "IMU chip:    " << p._device._imu << "\n"
+             << "_a_max:      " << im._a_max  << "  (≈8/16 → g; ≈78/157 → m/s²)\n"
+             << "_g_max:      " << im._g_max  << "  (≈250/500/2000 → deg/s; ≈4.4/8.7/35 → rad/s)\n"
+             << "_sigma_g_c:  " << im._sigma_g_c  << "\n"
+             << "_sigma_a_c:  " << im._sigma_a_c  << "\n"
+             << "_sigma_gw_c: " << im._sigma_gw_c << "\n"
+             << "_sigma_aw_c: " << im._sigma_aw_c << "\n"
+             << "_sigma_bg:   " << im._sigma_bg   << "\n"
+             << "_sigma_ba:   " << im._sigma_ba   << "\n"
+             << "_g:          " << im._g          << "\n";
+        cout << "_T_BS:       ";
+        for (int i = 0; i < 16; i++) cout << im._T_BS[i] << " ";
+        cout << "\n=========================\n";
+    }
+
     // --- Shared state ---
     mutex imu_mutex;
     condition_variable img_cv;
@@ -130,14 +151,19 @@ int main(int argc, char **argv) {
         },
         nullptr);
 
+    // SDK provides acc in g and gyro in deg/s (confirmed via _a_max/_g_max above).
+    // Convert to m/s² and rad/s for EuRoC / Kalibr compatibility.
+    constexpr float G = 9.81f;
+    constexpr float DEG2RAD = static_cast<float>(M_PI / 180.0);
+
     // --- IMU callback ---
     int imu_count = 0;
     sdk->RegistModuleIMUCallback([&](indem::ImuData imu) {
         {
             lock_guard<mutex> lock(imu_mutex);
-            v_acc_data.push_back({imu.accel[0], imu.accel[1], imu.accel[2]});
+            v_acc_data.push_back({imu.accel[0] * G,       imu.accel[1] * G,       imu.accel[2] * G});
             v_acc_timestamp.push_back(imu.timestamp);
-            v_gyro_data.push_back({imu.gyro[0], imu.gyro[1], imu.gyro[2]});
+            v_gyro_data.push_back({imu.gyro[0] * DEG2RAD, imu.gyro[1] * DEG2RAD, imu.gyro[2] * DEG2RAD});
             v_gyro_timestamp.push_back(imu.timestamp);
         }
         if (imu_count % 100 == 0) {

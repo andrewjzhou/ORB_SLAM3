@@ -215,6 +215,90 @@ delete sdk;  // calls Release() internally
 
 Use `RegistModuleCameraCallback` (raw bytes) rather than `RegistImgCallback` (cv::Mat) to avoid passing `cv::Mat` objects across the OpenCV 3.4/4.x ABI boundary.
 
+**IMU output units (confirmed from device firmware):**
+- `imu.accel[]` is in **g** — multiply by 9.81 to get m/s²
+- `imu.gyro[]` is in **deg/s** — multiply by π/180 to get rad/s
+
+`recorder_indemind.cc` applies these conversions automatically before saving.
+
+**Reading device calibration from firmware:**
+
+> **Note on factory camera calibration:** `MoudleAllParam` also stores `_left_camera` / `_right_camera`
+> (`CameraParameter` structs with `_K`, `_focal_length`, `_principal_point`, distortion). However the
+> firmware distortion model is pinhole-radtan (`k1, k2, t1, t2`), which cannot accurately model this
+> camera's 140° FOV. This appears to be a manufacturer oversight — the equidistant (Kannala-Brandt)
+> model is required for fisheye lenses. **Do not use the factory camera calibration for ORB-SLAM3.**
+> Use the Kalibr `pinhole-equi` calibration instead (see Kalibr section below).
+
+```cpp
+auto params = sdk->GetModuleParams();   // returns indem::MoudleAllParam
+auto& imu = params._imu;               // indem::IMUParameter
+
+// Full-scale ranges (SI units):  _a_max ≈ 176 m/s²,  _g_max ≈ 30 rad/s
+// Noise params (native units — divide by unit factor for SI):
+//   _sigma_g_c:  0.12   deg/s/√Hz    → *pi/180 → 0.00209 rad/s/√Hz
+//   _sigma_a_c:  0.009  g/√Hz        → *9.81   → 0.0883  m/s²/√Hz
+//   _sigma_gw_c: 4e-5   deg/s/√s     → *pi/180 → 6.98e-7 rad/s/√s
+//   _sigma_aw_c: 4e-5   g/√s         → *9.81   → 3.92e-4 m/s²/√s
+// _T_BS[16]: IMU→body transform (4×4, identity on this device)
+// _device._imu[32]: IMU chip description string ("120mm" for this unit)
+```
+
+---
+
+## Calibration Results (2026-04-01)
+
+Calibrated with Kalibr using an Aprilgrid 6x6 (tagSize 0.088m, tagSpacing 0.3) at 640×400.
+ORB-SLAM3 yaml: `Examples/Stereo-Inertial/INDEMIND.yaml`
+Kalibr output files: `data/calib/indemind/kalibr/`
+
+### Camera intrinsics (KannalaBrandt8 / pinhole-equi)
+
+| | fx | fy | cx | cy |
+|---|---|---|---|---|
+| cam0 (left) | 244.438 | 244.781 | 313.775 | 196.187 |
+| cam1 (right) | 245.448 | 245.612 | 324.000 | 201.470 |
+
+Distortion coefficients (k1, k2, k3, k4):
+- cam0: `0.6010, 0.1609, -0.5731, 0.2728`
+- cam1: `0.6015, 0.1728, -0.6398, 0.3347`
+
+Visual calibration reprojection error: σ ≈ 0.15–0.19 px (excellent; threshold is < 0.3 px)
+
+### Stereo extrinsics
+
+Baseline: **119.82mm** (nominal 120mm — confirms tagSize was correct)
+
+T_c1_c2 translation (right cam → left cam): `[0.1198, 0.0001, 0.0003]` m
+
+### IMU-camera extrinsics
+
+T_cam0_imu translation: `[0.0605, -0.0003, -0.0061]` m — IMU is ~60mm from left camera (physically between the two cameras, consistent with 120mm baseline)
+
+IMU-camera rotation: ~180° around z-axis (IMU x/y axes point opposite to camera x/y axes)
+
+### Timing
+
+**Camera-IMU time offset: 23.6ms** (`t_imu = t_cam + 0.0236s`)
+
+The camera clock lags the IMU clock by 23.6ms. This is a hardware clock offset, not a frame-rate effect (50Hz camera = 20ms between frames, so the offset is slightly more than one frame period).
+
+**Implications for diffusion policy / data collection:**
+- When replaying recorded data offline, timestamps from the INDEMIND SDK are camera timestamps. The IMU data is already saved with its own timestamps — the offset is accounted for in the ORB-SLAM3 yaml via `IMU.T_b_c1`.
+- If feeding live data to a custom pipeline (e.g. extracting poses for demonstration recording), either use ORB-SLAM3 directly (handles offset internally) or shift camera timestamps by +23.6ms before fusing with IMU.
+- For diffusion policy training, poses are extracted after-the-fact by ORB-SLAM3, so the offset is handled transparently — no manual correction needed.
+
+### IMU noise parameters (from device firmware)
+
+| Parameter | Value | Unit |
+|---|---|---|
+| Gyro noise density | 0.002094 | rad/s/√Hz |
+| Accel noise density | 0.08829 | m/s²/√Hz |
+| Gyro random walk | 6.981e-7 | rad/s/√s |
+| Accel random walk | 3.924e-4 | m/s²/√s |
+
+If ORB-SLAM3 IMU initialization fails to converge, multiply NoiseGyro and NoiseAcc by 10 (they are priors, not hard constraints).
+
 ---
 
 ## Troubleshooting

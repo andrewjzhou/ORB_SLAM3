@@ -1,0 +1,5 @@
+target_type: 'aprilgrid'
+tagCols: 6
+tagRows: 6
+tagSize: 0.088        # individual tag edge length [m] — measure on your physical print to verify
+tagSpacing: 0.3       # ratio of gap between tags to tagSize (standard Kalibr layout)

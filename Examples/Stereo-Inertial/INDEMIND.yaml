@@ -1,0 +1,115 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# INDEMIND Stereo-Inertial Camera
+# Calibrated with Kalibr on 2026-04-01
+# Camera model: KannalaBrandt8 (equidistant, Kannala-Brandt)
+# Resolution: 640x400, 50 Hz | IMU: 1000 Hz | Baseline: ~120mm
+# Camera-IMU time offset: t_imu = t_cam + 0.0236s (23.6ms, cam lags IMU clock)
+#--------------------------------------------------------------------------------------------
+File.version: "1.0"
+
+Camera.type: "KannalaBrandt8"
+
+# Left camera (cam0) intrinsics
+Camera1.fx: 244.43827101503615
+Camera1.fy: 244.7812173789584
+Camera1.cx: 313.7749959798858
+Camera1.cy: 196.18709630030062
+
+# Kannala-Brandt distortion (equidistant k1..k4)
+Camera1.k1:  0.6010303932593088
+Camera1.k2:  0.16087504019037505
+Camera1.k3: -0.573130127526272
+Camera1.k4:  0.2727761639205214
+
+# Right camera (cam1) intrinsics
+Camera2.fx: 245.447884079221
+Camera2.fy: 245.61155830652933
+Camera2.cx: 324.0004718630311
+Camera2.cy: 201.47014779574567
+
+# Kannala-Brandt distortion (equidistant k1..k4)
+Camera2.k1:  0.601482764276272
+Camera2.k2:  0.1728278386867737
+Camera2.k3: -0.6398394171404175
+Camera2.k4:  0.33468846566031
+
+# Transformation from right camera (cam1) to left camera (cam0)
+# = inverse of Kalibr T_cn_cnm1 (cam1 entry in visual-camchain.yaml)
+Stereo.T_c1_c2: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [ 9.99961518e-01, -2.01283831e-03, -8.53882684e-03,  1.19824852e-01,
+          2.06317562e-03,  9.99980523e-01,  5.89040094e-03,  7.14469844e-05,
+          8.52680411e-03, -5.90779136e-03,  9.99946194e-01,  3.20564443e-04,
+          0.0, 0.0, 0.0, 1.0 ]
+
+# Overlapping columns between left and right image (full width — refine if needed)
+Camera1.overlappingBegin: 0
+Camera1.overlappingEnd: 639
+
+Camera2.overlappingBegin: 0
+Camera2.overlappingEnd: 639
+
+# Camera resolution
+Camera.width: 640
+Camera.height: 400
+
+# Camera frames per second
+Camera.fps: 50
+
+# Color order (0: BGR, 1: RGB — ignored for grayscale)
+Camera.RGB: 0
+
+# Close/Far threshold in baseline units (120mm baseline; 40x = 4.8m)
+Stereo.ThDepth: 40.0
+
+#--------------------------------------------------------------------------------------------
+# IMU Parameters
+#--------------------------------------------------------------------------------------------
+
+# Transformation from IMU to left camera (cam0)
+# = inverse of Kalibr T_cam_imu (cam0 entry in inertial-camchain-imucam.yaml)
+IMU.T_b_c1: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [-9.99971907e-01, -5.94563636e-04, -7.47204197e-03,  6.04770297e-02,
+          5.59041915e-04, -9.99988538e-01,  4.75514075e-03, -3.30435237e-04,
+         -7.47478356e-03,  4.75082998e-03,  9.99960778e-01,  6.54418100e-03,
+          0.0, 0.0, 0.0, 1.0 ]
+
+# IMU noise parameters — from INDEMIND device firmware (GetModuleParams()._imu)
+# Tip: if IMU initialization fails to converge, multiply NoiseGyro/NoiseAcc by 10
+IMU.NoiseGyro:  0.002094   # rad/s/√Hz  (firmware: 0.12 deg/s/√Hz * pi/180)
+IMU.NoiseAcc:   0.08829    # m/s²/√Hz   (firmware: 0.009 g/√Hz * 9.81)
+IMU.GyroWalk:   6.981e-7   # rad/s/√s   (firmware: 4e-5 deg/s/√s * pi/180)
+IMU.AccWalk:    3.924e-4   # m/s²/√s    (firmware: 4e-5 g/√s * 9.81)
+IMU.Frequency:  1000.0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+
+ORBextractor.nFeatures: 1000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#--------------------------------------------------------------------------------------------
+
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -3.5
+Viewer.ViewpointF: 500.0
