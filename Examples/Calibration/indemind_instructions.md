@@ -108,6 +108,7 @@ if(EXISTS "${IMSEE_SDK_ROOT}/include/imrsdk.h")
     set(IMSEE_MNN_LIB  "${IMSEE_SDK_ROOT}/src/detector/lib/x86-64/libMNN.so")
     set(OPENCV34_LIBS
         "${OPENCV34_ROOT}/lib/libopencv_highgui.so.3.4"
+        "${OPENCV34_ROOT}/lib/libopencv_imgcodecs.so.3.4"
         "${OPENCV34_ROOT}/lib/libopencv_imgproc.so.3.4"
         "${OPENCV34_ROOT}/lib/libopencv_core.so.3.4"
     )
@@ -145,18 +146,36 @@ cmake --build build --target recorder_indemind -j$(nproc)
 ## Step 7 — Run
 
 ```bash
-./Examples/Calibration/recorder_indemind
+./Examples/Calibration/recorder_indemind <save_dir>
 ```
+
+The `cam0/`, `cam1/`, and `IMU/` subdirectories are created automatically inside `<save_dir>`.
 
 Expected output:
 ```
-INDEMIND SDK initialized.
+INDEMIND SDK initialized. Saving to: <save_dir>
 Streaming. Press 'q' or Ctrl+C to quit.
 [IMU] t=0.470713  accel=(0.017673, -0.010358, 0.990963) m/s^2  gyro=(0.179933, 0.008998, 0.204508) rad/s
 ...
 ```
 
-Two OpenCV windows open showing the left and right grayscale camera feeds. IMU data prints every 100 samples (~10 Hz at 1000 Hz IMU rate). Press `q` or `Ctrl+C` to quit.
+Two OpenCV windows show the left and right grayscale feeds. IMU prints every 100 samples. Press `q` or `Ctrl+C` to quit.
+
+Saved data layout:
+```
+<save_dir>/
+├── cam0/
+│   ├── times.txt          # nanosecond timestamps, one per line
+│   └── <ns_timestamp>.png
+├── cam1/
+│   ├── times.txt
+│   └── <ns_timestamp>.png
+└── IMU/
+    ├── acc.txt            # timestamp,x,y,z  (seconds, 15 decimal places)
+    └── gyro.txt           # timestamp,x,y,z
+```
+
+This matches the EuRoC dataset format expected by ORB-SLAM3 and Kalibr.
 
 ---
 

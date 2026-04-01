@@ -264,12 +264,6 @@ if(realsense2_FOUND)
     target_link_libraries(recorder_realsense_T265 ${PROJECT_NAME})
 endif()
 
-if(depthai_FOUND)
-    add_executable(recorder_oakd_lite
-            Examples/Calibration/recorder_oakd_lite.cc)
-    target_link_libraries(recorder_oakd_lite depthai::core)
-    target_compile_features(recorder_oakd_lite PRIVATE cxx_std_17)
-endif()
 
 # INDEMIND IMSEE-SDK (stereo-inertial camera)
 # libindemind.so was built against OpenCV 3.4. We build a minimal OpenCV 3.4
@@ -284,6 +278,7 @@ if(EXISTS "${IMSEE_SDK_ROOT}/include/imrsdk.h")
     # conflicts that crash imshow on grayscale images.
     set(OPENCV34_LIBS
         "${OPENCV34_ROOT}/lib/libopencv_highgui.so.3.4"
+        "${OPENCV34_ROOT}/lib/libopencv_imgcodecs.so.3.4"
         "${OPENCV34_ROOT}/lib/libopencv_imgproc.so.3.4"
         "${OPENCV34_ROOT}/lib/libopencv_core.so.3.4"
     )
