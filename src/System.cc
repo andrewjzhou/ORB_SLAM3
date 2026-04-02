@@ -39,7 +39,8 @@ namespace ORB_SLAM3
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer, const int initFr, const string &strSequence):
+               const bool bUseViewer, const int initFr, const string &strSequence,
+               const string &strLoadAtlasFromFile, const string &strSaveAtlasToFile):
     mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false), mbResetActiveMap(false),
     mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false), mbShutDown(false)
 {
@@ -97,6 +98,12 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
             mStrSaveAtlasToFile = (string)node;
         }
     }
+
+    // CLI overrides take precedence over YAML settings
+    if (!strLoadAtlasFromFile.empty())
+        mStrLoadAtlasFromFile = strLoadAtlasFromFile;
+    if (!strSaveAtlasToFile.empty())
+        mStrSaveAtlasToFile = strSaveAtlasToFile;
 
     node = fsSettings["loopClosing"];
     bool activeLC = true;
@@ -168,7 +175,14 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
         loadedAtlas = true;
 
-        mpAtlas->CreateNewMap();
+        // Use the loaded map directly instead of creating a new empty map.
+        // This lets the tracker relocalize against the loaded keyframes
+        // rather than starting from scratch and attempting a fragile merge.
+        vector<Map*> vMaps = mpAtlas->GetAllMaps();
+        if (!vMaps.empty())
+            mpAtlas->ChangeMap(vMaps[0]);
+        else
+            mpAtlas->CreateNewMap();  // fallback: empty atlas
 
         //clock_t timeElapsed = clock() - start;
         //unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000);
@@ -207,6 +221,16 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
     else
         mpLocalMapper->mbFarPoints = false;
+
+    if(settings_) {
+        mpLocalMapper->mThImuInitDist = settings_->thImuInitDist();
+        mpLocalMapper->mThImuInitMinDist = settings_->thImuInitMinDist();
+    } else {
+        cv::FileNode nd = fsSettings["IMU.thImuInitDist"];
+        mpLocalMapper->mThImuInitDist = nd.empty() ? 0.05f : (float)nd;
+        nd = fsSettings["IMU.thImuInitMinDist"];
+        mpLocalMapper->mThImuInitMinDist = nd.empty() ? 0.02f : (float)nd;
+    }
 
     //Initialize the Loop Closing thread and launch
     // mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR
@@ -1402,9 +1426,7 @@ void System::SaveAtlas(int type){
         // Save the current session
         mpAtlas->PreSave();
 
-        string pathSaveFileName = "./";
-        pathSaveFileName = pathSaveFileName.append(mStrSaveAtlasToFile);
-        pathSaveFileName = pathSaveFileName.append(".osa");
+        string pathSaveFileName = mStrSaveAtlasToFile + ".osa";
 
         string strVocabularyChecksum = CalculateCheckSum(mStrVocabularyFilePath,TEXT_FILE);
         std::size_t found = mStrVocabularyFilePath.find_last_of("/\\");
@@ -1441,9 +1463,7 @@ bool System::LoadAtlas(int type)
     string strFileVoc, strVocChecksum;
     bool isRead = false;
 
-    string pathLoadFileName = "./";
-    pathLoadFileName = pathLoadFileName.append(mStrLoadAtlasFromFile);
-    pathLoadFileName = pathLoadFileName.append(".osa");
+    string pathLoadFileName = mStrLoadAtlasFromFile + ".osa";
 
     if(type == TEXT_FILE) // File text
     {

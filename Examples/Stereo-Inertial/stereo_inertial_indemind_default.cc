@@ -1,14 +1,5 @@
 /**
  * Stereo-inertial ORB-SLAM3 runner for INDEMIND recorder output.
- * Supports map save/load for manipulation/welding data collection.
- *
- * Workflow:
- *   1. Build map:   --save-map workshop_map --no-realtime --no-viewer
- *   2. Localize + extend: --load-map workshop_map --save-map workshop_demo01
- *
- * When --load-map is used, the system loads a pre-built atlas and localizes
- * against it via place recognition. Local mapping remains active so the map
- * can be extended as the environment changes.
  *
  * Reads the directory layout produced by recorder_indemind:
  *   <data_dir>/cam0/times.txt          nanosecond timestamps, one per line
@@ -19,16 +10,13 @@
  *   <data_dir>/IMU/acc.txt             timestamp_s,ax,ay,az
  *
  * Usage:
- *   ./stereo_inertial_indemind \
- *       --vocab    Vocabulary/ORBvoc.txt \
- *       --settings Examples/Stereo-Inertial/INDEMIND.yaml \
- *       --data     <data_dir> \
- *       [--name      trajectory_name] \
- *       [--save-map  map_name] \
- *       [--load-map  map_name] \
- *       [--max-lost  100] \
- *       [--no-realtime] \
- *       [--no-viewer]
+ *   ./stereo_inertial_indemind Vocabulary/ORBvoc.txt \
+ *       Examples/Stereo-Inertial/INDEMIND.yaml \
+ *       <data_dir> [trajectory_name]
+ *
+ * Outputs:
+ *   CameraTrajectory.txt / kf_<name>.txt   (EuRoC format)
+ *   KeyFrameTrajectory.txt / f_<name>.txt
  */
 
 #include <iostream>
@@ -164,47 +152,30 @@ void LoadIMU(const string &dataDir,
 
 int main(int argc, char **argv)
 {
-    // Parse CLI flags
+    // Parse named flags
     string vocabPath, settingsPath, dataDir, fileName;
-    string loadMapPath, saveMapPath;
-    int maxLostFrames = 100;
-    bool bViewer = true;
+    bool bViewer  = true;
     bool bFileName = false;
-    bool bNoRealtime = false;
 
     for (int i = 1; i < argc; i++) {
         string arg = argv[i];
-        if      (arg == "--vocab"      && i+1 < argc) vocabPath    = argv[++i];
-        else if (arg == "--settings"   && i+1 < argc) settingsPath = argv[++i];
-        else if (arg == "--data"       && i+1 < argc) dataDir      = argv[++i];
-        else if (arg == "--name"       && i+1 < argc) { fileName = argv[++i]; bFileName = true; }
-        else if (arg == "--no-viewer")                 bViewer = false;
-        else if (arg == "--load-map"   && i+1 < argc) loadMapPath  = argv[++i];
-        else if (arg == "--save-map"   && i+1 < argc) saveMapPath  = argv[++i];
-        else if (arg == "--max-lost"   && i+1 < argc) maxLostFrames = stoi(argv[++i]);
-        else if (arg == "--no-realtime")               bNoRealtime = true;
+        if      (arg == "--vocab"    && i+1 < argc) vocabPath    = argv[++i];
+        else if (arg == "--settings" && i+1 < argc) settingsPath = argv[++i];
+        else if (arg == "--data"     && i+1 < argc) dataDir      = argv[++i];
+        else if (arg == "--name"     && i+1 < argc) { fileName = argv[++i]; bFileName = true; }
+        else if (arg == "--no-viewer") bViewer = false;
         else { cerr << "Unknown argument: " << arg << endl; }
     }
 
     if (vocabPath.empty() || settingsPath.empty() || dataDir.empty()) {
         cerr << "\nUsage: ./stereo_inertial_indemind \\\n"
-                "    --vocab      Vocabulary/ORBvoc.txt \\\n"
-                "    --settings   Examples/Stereo-Inertial/INDEMIND.yaml \\\n"
-                "    --data       <data_dir> \\\n"
-                "    [--name      trajectory_name] \\\n"
-                "    [--save-map  map_name]         Save atlas on shutdown\\\n"
-                "    [--load-map  map_name]         Load atlas at startup\\\n"
-                "    [--max-lost  100]              Max consecutive lost frames before abort\\\n"
-                "    [--no-realtime]                Process as fast as possible\\\n"
+                "    --vocab    Vocabulary/ORBvoc.txt \\\n"
+                "    --settings Examples/Stereo-Inertial/INDEMIND.yaml \\\n"
+                "    --data     <data_dir> \\\n"
+                "    [--name    trajectory_name] \\\n"
                 "    [--no-viewer]\n\n";
         return 1;
     }
-
-    // Log configuration
-    if (!loadMapPath.empty())
-        cout << "Loading atlas from: ./" << loadMapPath << ".osa" << endl;
-    if (!saveMapPath.empty())
-        cout << "Will save atlas to: ./" << saveMapPath << ".osa" << endl;
 
     // Load images
     vector<string> vstrLeft, vstrRight;
@@ -236,18 +207,13 @@ int main(int argc, char **argv)
         firstImu++;
     firstImu = max(0, firstImu - 1);
 
-    // Init SLAM with optional atlas load/save paths
-    ORB_SLAM3::System SLAM(vocabPath, settingsPath, ORB_SLAM3::System::IMU_STEREO,
-                           bViewer, 0, string(), loadMapPath, saveMapPath);
+    // Init SLAM
+    ORB_SLAM3::System SLAM(vocabPath, settingsPath, ORB_SLAM3::System::IMU_STEREO, bViewer);
 
-    // Local mapping stays active — the map is extended as the environment changes.
-    // Do NOT call SLAM.ActivateLocalizationMode().
-
+    vector<float> vTimesTrack(nImages);
     cout << "\n-------\nStart processing sequence ...\n"
          << "Images in sequence: " << nImages << "\n-------\n";
 
-    int consecutiveLost = 0;
-    vector<float> vTimesTrack(nImages);
     cv::Mat imLeft, imRight;
     vector<ORB_SLAM3::IMU::Point> vImuMeas;
 
@@ -286,35 +252,13 @@ int main(int argc, char **argv)
         double ttrack = chrono::duration_cast<chrono::duration<double>>(t2 - t1).count();
         vTimesTrack[ni] = ttrack;
 
-        // Check tracking state
-        int trackingState = SLAM.GetTrackingState();
-        if (trackingState == 4) {  // Tracking::LOST
-            consecutiveLost++;
-            if (consecutiveLost % 10 == 1)
-                cout << "LOST frame " << ni << " (" << consecutiveLost
-                     << "/" << maxLostFrames << ")" << endl;
-            if (maxLostFrames > 0 && consecutiveLost >= maxLostFrames) {
-                cerr << "Exceeded max consecutive lost frames (" << maxLostFrames
-                     << "), aborting." << endl;
-                break;
-            }
-        } else {
-            if (consecutiveLost > 0)
-                cout << "Tracking recovered after " << consecutiveLost
-                     << " lost frames at frame " << ni << endl;
-            consecutiveLost = 0;
-        }
-
-        // Real-time pacing (skip if --no-realtime)
-        if (!bNoRealtime) {
-            double T = (ni < nImages - 1) ? vTimestampsCam[ni + 1] - tframe
-                                           : tframe - vTimestampsCam[ni - 1];
-            if (ttrack < T)
-                usleep((T - ttrack) * 1e6);
-        }
+        // Real-time pacing: wait if tracking finished early
+        double T = (ni < nImages - 1) ? vTimestampsCam[ni + 1] - tframe
+                                       : tframe - vTimestampsCam[ni - 1];
+        if (ttrack < T)
+            usleep((T - ttrack) * 1e6);
     }
 
-    // Shutdown triggers SaveAtlas automatically if --save-map was provided
     SLAM.Shutdown();
 
     // Save trajectories

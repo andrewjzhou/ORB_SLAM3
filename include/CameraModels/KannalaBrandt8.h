@@ -39,7 +39,7 @@ namespace ORB_SLAM3 {
     }
 
     public:
-        KannalaBrandt8() : precision(1e-6) {
+        KannalaBrandt8() : precision(1e-6), mvLappingArea(2,0) {
             mvParameters.resize(8);
             mnId=nNextId++;
             mnType = CAM_FISHEYE;

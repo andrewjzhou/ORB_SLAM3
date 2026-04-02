@@ -535,6 +535,10 @@ Tracking::~Tracking()
 void Tracking::newParameterLoader(Settings *settings) {
     mpCamera = settings->camera1();
     mpCamera = mpAtlas->AddCamera(mpCamera);
+    // mvLappingArea is not serialized — ensure loaded cameras get correct values
+    if(settings->cameraType() == Settings::KannalaBrandt)
+        static_cast<KannalaBrandt8*>(mpCamera)->mvLappingArea =
+            static_cast<KannalaBrandt8*>(settings->camera1())->mvLappingArea;
 
     if(settings->needToUndistort()){
         mDistCoef = settings->camera1DistortionCoef();
@@ -562,6 +566,8 @@ void Tracking::newParameterLoader(Settings *settings) {
         settings->cameraType() == Settings::KannalaBrandt){
         mpCamera2 = settings->camera2();
         mpCamera2 = mpAtlas->AddCamera(mpCamera2);
+        static_cast<KannalaBrandt8*>(mpCamera2)->mvLappingArea =
+            static_cast<KannalaBrandt8*>(settings->camera2())->mvLappingArea;
 
         mTlr = settings->Tlr();
 
@@ -584,6 +590,9 @@ void Tracking::newParameterLoader(Settings *settings) {
     mMinFrames = 0;
     mMaxFrames = settings->fps();
     mbRGB = settings->rgb();
+
+    if(mSensor==System::IMU_MONOCULAR || mSensor==System::IMU_STEREO || mSensor==System::IMU_RGBD)
+        mnFramesToResetIMU = mMaxFrames;
 
     //ORB parameters
     int nFeatures = settings->nFeatures();
@@ -2334,6 +2343,44 @@ void Tracking::Track()
 
 void Tracking::StereoInitialization()
 {
+    // If current map already has keyframes (loaded atlas), relocalize instead of init
+    Map* pCurrentMap = mpAtlas->GetCurrentMap();
+    if(pCurrentMap && pCurrentMap->KeyFramesInMap() > 0)
+    {
+        if(Relocalization())
+        {
+            mState = OK;
+            mLastFrame = Frame(mCurrentFrame);
+            mnLastKeyFrameId = mCurrentFrame.mnId;
+
+            // Find reference KF: the loaded KF sharing the most matched map points
+            std::map<KeyFrame*, int> kfCounter;
+            for(int i = 0; i < mCurrentFrame.N; i++) {
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+                if(pMP && !pMP->isBad()) {
+                    auto observations = pMP->GetObservations();
+                    for(auto& ob : observations) {
+                        if(!std::get<0>(ob)->isBad())
+                            kfCounter[std::get<0>(ob)]++;
+                    }
+                }
+            }
+            int maxCount = 0;
+            for(auto& kv : kfCounter) {
+                if(kv.second > maxCount) {
+                    maxCount = kv.second;
+                    mpReferenceKF = kv.first;
+                }
+            }
+            mCurrentFrame.mpReferenceKF = mpReferenceKF;
+            mpLastKeyFrame = mpReferenceKF;
+            mvpLocalMapPoints = pCurrentMap->GetAllMapPoints();
+
+            Verbose::PrintMess("Relocalized against loaded map!", Verbose::VERBOSITY_QUIET);
+        }
+        return;
+    }
+
     if(mCurrentFrame.N>500)
     {
         if (mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD)
@@ -2978,8 +3025,16 @@ bool Tracking::TrackLocalMap()
         }
         else
         {
+            // Fall back to visual-only if IMU constraint is missing (e.g. after
+            // relocalization against a loaded map where the preintegration chain
+            // hasn't been re-established yet).
+            if(!mLastFrame.mpcpi)
+            {
+                Verbose::PrintMess("TLM: PoseOptimization (no IMU constraint) ", Verbose::VERBOSITY_DEBUG);
+                Optimizer::PoseOptimization(&mCurrentFrame);
+            }
             // if(!mbMapUpdated && mState == OK) //  && (mnMatchesInliers>30))
-            if(!mbMapUpdated) //  && (mnMatchesInliers>30))
+            else if(!mbMapUpdated) //  && (mnMatchesInliers>30))
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
                 inliers = Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());

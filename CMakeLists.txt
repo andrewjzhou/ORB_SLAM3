@@ -243,6 +243,10 @@ add_executable(stereo_inertial_indemind
         Examples/Stereo-Inertial/stereo_inertial_indemind.cc)
 target_link_libraries(stereo_inertial_indemind ${PROJECT_NAME})
 
+add_executable(stereo_inertial_indemind_default
+        Examples/Stereo-Inertial/stereo_inertial_indemind_default.cc)
+target_link_libraries(stereo_inertial_indemind_default ${PROJECT_NAME})
+
 add_executable(stereo_inertial_tum_vi
         Examples/Stereo-Inertial/stereo_inertial_tum_vi.cc)
 target_link_libraries(stereo_inertial_tum_vi ${PROJECT_NAME})

@@ -5465,11 +5465,16 @@ void Optimizer::OptimizeEssentialGraph4DoF(Map* pMap, KeyFrame* pLoopKF, KeyFram
             Tij.block<3,1>(0,3) = Sij.translation();
             Tij(3,3)=1.;
 
-            Edge4DoF* e = new Edge4DoF(Tij);
-            e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDi)));
-            e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDj)));
-            e->information() = matLambda;
-            optimizer.addEdge(e);
+            g2o::OptimizableGraph::Vertex* vi = dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDi));
+            g2o::OptimizableGraph::Vertex* vj = dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(nIDj));
+            if(vi && vj)
+            {
+                Edge4DoF* e = new Edge4DoF(Tij);
+                e->setVertex(0, vi);
+                e->setVertex(1, vj);
+                e->information() = matLambda;
+                optimizer.addEdge(e);
+            }
         }
 
         // 1.2 Loop edges

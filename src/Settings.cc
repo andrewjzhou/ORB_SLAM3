@@ -480,6 +480,11 @@ namespace ORB_SLAM3 {
         bool found;
 
         thFarPoints_ = readParameter<float>(fSettings,"System.thFarPoints",found,false);
+
+        thImuInitDist_ = readParameter<float>(fSettings,"IMU.thImuInitDist",found,false);
+        if(!found) thImuInitDist_ = 0.05f;
+        thImuInitMinDist_ = readParameter<float>(fSettings,"IMU.thImuInitMinDist",found,false);
+        if(!found) thImuInitMinDist_ = 0.02f;
     }
 
     void Settings::precomputeRectificationMaps() {

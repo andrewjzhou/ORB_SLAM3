@@ -1902,7 +1902,12 @@ namespace ORB_SLAM3
 
         const vector<MapPoint*> vpMPs = pKF->GetMapPointMatches();
 
-        for(size_t i=0, iend=vpMPs.size(); i<iend; i++)
+        // For fisheye stereo, only iterate over left-camera map points.
+        // Right-camera indices (i >= NLeft) would access mvKeysUn out of bounds
+        // since mvKeysUn only contains left keypoints.
+        const size_t nToSearch = (pKF->NLeft > 0) ? (size_t)pKF->NLeft : vpMPs.size();
+
+        for(size_t i=0, iend=nToSearch; i<iend; i++)
         {
             MapPoint* pMP = vpMPs[i];
 

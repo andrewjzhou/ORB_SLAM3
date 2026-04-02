@@ -111,6 +111,10 @@ public:
     bool mbFarPoints;
     float mThFarPoints;
 
+    // IMU init motion thresholds (configurable via YAML)
+    float mThImuInitDist;       // min keyframe-pair distance to accumulate init time
+    float mThImuInitMinDist;    // below this + mTinit<10s triggers map reset
+
 #ifdef REGISTER_TIMES
     vector<double> vdKFInsert_ms;
     vector<double> vdMPCulling_ms;
