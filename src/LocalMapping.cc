@@ -131,11 +131,11 @@ void LocalMapping::Run()
                         float dist = (mpCurrentKeyFrame->mPrevKF->GetCameraCenter() - mpCurrentKeyFrame->GetCameraCenter()).norm() +
                                 (mpCurrentKeyFrame->mPrevKF->mPrevKF->GetCameraCenter() - mpCurrentKeyFrame->mPrevKF->GetCameraCenter()).norm();
 
-                        if(dist>0.05)
+                        if(dist>0.01)
                             mTinit += mpCurrentKeyFrame->mTimeStamp - mpCurrentKeyFrame->mPrevKF->mTimeStamp;
                         if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2())
                         {
-                            if((mTinit<10.f) && (dist<0.02))
+                            if((mTinit<10.f) && (dist<0.005))
                             {
                                 cout << "Not enough motion for initializing. Reseting..." << endl;
                                 unique_lock<mutex> lock(mMutexReset);
@@ -488,7 +488,8 @@ void LocalMapping::CreateNewMapPoints()
             const cv::KeyPoint &kp1 = (mpCurrentKeyFrame -> NLeft == -1) ? mpCurrentKeyFrame->mvKeysUn[idx1]
                                                                          : (idx1 < mpCurrentKeyFrame -> NLeft) ? mpCurrentKeyFrame -> mvKeys[idx1]
                                                                                                                : mpCurrentKeyFrame -> mvKeysRight[idx1 - mpCurrentKeyFrame -> NLeft];
-            const float kp1_ur=mpCurrentKeyFrame->mvuRight[idx1];
+            const float kp1_ur = (mpCurrentKeyFrame->NLeft != -1 && idx1 >= mpCurrentKeyFrame->NLeft)
+                                  ? -1.0f : mpCurrentKeyFrame->mvuRight[idx1];
             bool bStereo1 = (!mpCurrentKeyFrame->mpCamera2 && kp1_ur>=0);
             const bool bRight1 = (mpCurrentKeyFrame -> NLeft == -1 || idx1 < mpCurrentKeyFrame -> NLeft) ? false
                                                                                                          : true;
@@ -497,7 +498,8 @@ void LocalMapping::CreateNewMapPoints()
                                                             : (idx2 < pKF2 -> NLeft) ? pKF2 -> mvKeys[idx2]
                                                                                      : pKF2 -> mvKeysRight[idx2 - pKF2 -> NLeft];
 
-            const float kp2_ur = pKF2->mvuRight[idx2];
+            const float kp2_ur = (pKF2->NLeft != -1 && idx2 >= pKF2->NLeft)
+                                  ? -1.0f : pKF2->mvuRight[idx2];
             bool bStereo2 = (!pKF2->mpCamera2 && kp2_ur>=0);
             const bool bRight2 = (pKF2 -> NLeft == -1 || idx2 < pKF2 -> NLeft) ? false
                                                                                : true;
@@ -958,7 +960,11 @@ void LocalMapping::KeyFrameCulling()
                 {
                     if(!mbMonocular)
                     {
-                        if(pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0)
+                        // For fisheye stereo, mvDepth is only sized Nleft; right-camera
+                        // keypoints (i >= NLeft) have no depth entry — skip the check.
+                        const bool isFisheyeRight = (pKF->NLeft != -1 && i >= pKF->NLeft);
+                        if(!isFisheyeRight &&
+                           (pKF->mvDepth[i]>pKF->mThDepth || pKF->mvDepth[i]<0))
                             continue;
                     }
 
@@ -967,7 +973,7 @@ void LocalMapping::KeyFrameCulling()
                     {
                         const int &scaleLevel = (pKF -> NLeft == -1) ? pKF->mvKeysUn[i].octave
                                                                      : (i < pKF -> NLeft) ? pKF -> mvKeys[i].octave
-                                                                                          : pKF -> mvKeysRight[i].octave;
+                                                                                          : pKF -> mvKeysRight[i - pKF->NLeft].octave;
                         const map<KeyFrame*, tuple<int,int>> observations = pMP->GetObservations();
                         int nObs=0;
                         for(map<KeyFrame*, tuple<int,int>>::const_iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)

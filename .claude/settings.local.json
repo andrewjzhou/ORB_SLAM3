@@ -20,7 +20,18 @@
       "Bash(readelf -s /home/andrew/Dev/IMSEE-SDK/lib/others/x64-opencv3.4.3/libindemind.so)",
       "Bash(pkg-config --exists gtk+-3.0)",
       "Bash(pkg-config --exists gtk+-2.0)",
-      "Bash(dpkg -l)"
+      "Bash(dpkg -l)",
+      "Bash(make -j4 stereo_inertial_indemind)",
+      "Bash(rm -f /tmp/asan_log.*)",
+      "Bash(./Examples/Stereo-Inertial/stereo_inertial_indemind --vocab Vocabulary/ORBvoc.txt --settings Examples/Stereo-Inertial/INDEMIND.yaml --data data/indemind_yueju/00 --no-viewer)",
+      "Bash(tee /tmp/asan_output5.txt)",
+      "Bash(make -j4)",
+      "Bash(tee /tmp/release_output.txt)",
+      "Bash(grep -n \"~System\\\\|~Tracking\\\\|~LocalMapping\\\\|~LoopClosing\" src/*.cc)",
+      "Bash(find include:*)",
+      "Bash(cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo)",
+      "Bash(tee /tmp/asan_output_all.txt)",
+      "Bash(cmake .. -DCMAKE_C_FLAGS=\"-Wall -O1 -fsanitize=address -fno-omit-frame-pointer -g\" -DCMAKE_CXX_FLAGS=\"-Wall -O1 -fsanitize=address -fno-omit-frame-pointer -g\" -DCMAKE_SHARED_LINKER_FLAGS=\"-fsanitize=address\")"
     ]
   }
 }

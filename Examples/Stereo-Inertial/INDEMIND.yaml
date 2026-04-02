@@ -41,9 +41,9 @@ Stereo.T_c1_c2: !!opencv-matrix
   rows: 4
   cols: 4
   dt: f
-  data: [ 9.99961518e-01, -2.01283831e-03, -8.53882684e-03,  1.19824852e-01,
-          2.06317562e-03,  9.99980523e-01,  5.89040094e-03,  7.14469844e-05,
-          8.52680411e-03, -5.90779136e-03,  9.99946194e-01,  3.20564443e-04,
+  data: [ 0.999961518, -0.00201283831, -0.00853882684,  0.119824852,
+          0.00206317562,  0.999980523,  0.00589040094,  0.0000714469844,
+          0.00852680411, -0.00590779136,  0.999946194,  0.000320564443,
           0.0, 0.0, 0.0, 1.0 ]
 
 # Overlapping columns between left and right image (full width — refine if needed)
@@ -76,17 +76,17 @@ IMU.T_b_c1: !!opencv-matrix
   rows: 4
   cols: 4
   dt: f
-  data: [-9.99971907e-01, -5.94563636e-04, -7.47204197e-03,  6.04770297e-02,
-          5.59041915e-04, -9.99988538e-01,  4.75514075e-03, -3.30435237e-04,
-         -7.47478356e-03,  4.75082998e-03,  9.99960778e-01,  6.54418100e-03,
+  data: [-0.999971907, -0.000594563636, -0.00747204197,  0.0604770297,
+          0.000559041915, -0.999988538,  0.00475514075, -0.000330435237,
+         -0.00747478356,  0.00475082998,  0.999960778,  0.00654418100,
           0.0, 0.0, 0.0, 1.0 ]
 
 # IMU noise parameters — from INDEMIND device firmware (GetModuleParams()._imu)
 # Tip: if IMU initialization fails to converge, multiply NoiseGyro/NoiseAcc by 10
 IMU.NoiseGyro:  0.002094   # rad/s/√Hz  (firmware: 0.12 deg/s/√Hz * pi/180)
 IMU.NoiseAcc:   0.08829    # m/s²/√Hz   (firmware: 0.009 g/√Hz * 9.81)
-IMU.GyroWalk:   6.981e-7   # rad/s/√s   (firmware: 4e-5 deg/s/√s * pi/180)
-IMU.AccWalk:    3.924e-4   # m/s²/√s    (firmware: 4e-5 g/√s * 9.81)
+IMU.GyroWalk:   0.0000006981   # rad/s/√s   (firmware: 4e-5 deg/s/√s * pi/180)
+IMU.AccWalk:    0.0003924      # m/s²/√s    (firmware: 4e-5 g/√s * 9.81)
 IMU.Frequency:  1000.0
 
 #--------------------------------------------------------------------------------------------

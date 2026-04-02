@@ -410,11 +410,15 @@ void FrameDrawer::Update(Tracking *pTracker)
     }
     else if(pTracker->mLastProcessedState==Tracking::OK)
     {
+        const int nLeft = (int)mvCurrentKeys.size();
         for(int i=0;i<N;i++)
         {
             MapPoint* pMP = pTracker->mCurrentFrame.mvpMapPoints[i];
             if(pMP)
             {
+                const cv::KeyPoint& kp = (both && i >= nLeft)
+                    ? mvCurrentKeysRight[i - nLeft]
+                    : mvCurrentKeys[i];
                 if(!pTracker->mCurrentFrame.mvbOutlier[i])
                 {
                     if(pMP->Observations()>0)
@@ -422,12 +426,12 @@ void FrameDrawer::Update(Tracking *pTracker)
                     else
                         mvbVO[i]=true;
 
-                    mmMatchedInImage[pMP->mnId] = mvCurrentKeys[i].pt;
+                    mmMatchedInImage[pMP->mnId] = kp.pt;
                 }
                 else
                 {
                     mvpOutlierMPs.push_back(pMP);
-                    mvOutlierKeys.push_back(mvCurrentKeys[i]);
+                    mvOutlierKeys.push_back(kp);
                 }
             }
         }

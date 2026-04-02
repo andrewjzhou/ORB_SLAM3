@@ -1262,19 +1262,20 @@ namespace ORB_SLAM3
                 size_t idx = *vit;
                 const cv::KeyPoint &kp = (pKF -> NLeft == -1) ? pKF->mvKeysUn[idx]
                                                               : (!bRight) ? pKF -> mvKeys[idx]
-                                                                          : pKF -> mvKeysRight[idx];
+                                                                          : pKF -> mvKeysRight[idx - pKF->NLeft];
 
                 const int &kpLevel= kp.octave;
 
                 if(kpLevel<nPredictedLevel-1 || kpLevel>nPredictedLevel)
                     continue;
 
-                if(pKF->mvuRight[idx]>=0)
+                const float kp_ur = (pKF->NLeft != -1 && idx >= pKF->NLeft) ? -1.0f : pKF->mvuRight[idx];
+                if(kp_ur>=0)
                 {
                     // Check reprojection error in stereo
                     const float &kpx = kp.pt.x;
                     const float &kpy = kp.pt.y;
-                    const float &kpr = pKF->mvuRight[idx];
+                    const float &kpr = kp_ur;
                     const float ex = uv(0)-kpx;
                     const float ey = uv(1)-kpy;
                     const float er = ur-kpr;
