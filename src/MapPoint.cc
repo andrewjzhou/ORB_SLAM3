@@ -577,18 +577,18 @@ void MapPoint::PreSave(set<KeyFrame*>& spKF,set<MapPoint*>& spMP)
 
     mBackupObservationsId1.clear();
     mBackupObservationsId2.clear();
-    // Save the id and position in each KF who view it
+    // Save the id and position in each KF who view it.
+    // Only back up observations for KFs that are in the map's KF set.
+    // Do NOT call EraseObservation here — it dereferences KF pointers
+    // (which may be dangling) and can trigger SetBadFlag, which modifies
+    // the map's mspMapPoints set during the caller's iteration.
     for(std::map<KeyFrame*,std::tuple<int,int> >::const_iterator it = mObservations.begin(), end = mObservations.end(); it != end; ++it)
     {
         KeyFrame* pKFi = it->first;
         if(spKF.find(pKFi) != spKF.end())
         {
-            mBackupObservationsId1[it->first->mnId] = get<0>(it->second);
-            mBackupObservationsId2[it->first->mnId] = get<1>(it->second);
-        }
-        else
-        {
-            EraseObservation(pKFi);
+            mBackupObservationsId1[pKFi->mnId] = get<0>(it->second);
+            mBackupObservationsId2[pKFi->mnId] = get<1>(it->second);
         }
     }
 

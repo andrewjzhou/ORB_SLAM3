@@ -562,7 +562,6 @@ void System::Shutdown()
         }
         usleep(5000);
     }
-
     if(!mStrSaveAtlasToFile.empty())
     {
         Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile, Verbose::VERBOSITY_NORMAL);

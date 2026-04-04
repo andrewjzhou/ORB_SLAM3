@@ -358,56 +358,47 @@ void Map::SetLastMapChange(int currentChangeId)
 
 void Map::PreSave(std::set<GeometricCamera*> &spCams)
 {
-    int nMPWithoutObs = 0;
-    for(MapPoint* pMPi : mspMapPoints)
-    {
-        if(!pMPi || pMPi->isBad())
-            continue;
-
-        if(pMPi->GetObservations().size() == 0)
-        {
-            nMPWithoutObs++;
-        }
-        map<KeyFrame*, std::tuple<int,int>> mpObs = pMPi->GetObservations();
-        for(map<KeyFrame*, std::tuple<int,int>>::iterator it= mpObs.begin(), end=mpObs.end(); it!=end; ++it)
-        {
-            if(it->first->GetMap() != this || it->first->isBad())
-            {
-                pMPi->EraseObservation(it->first);
-            }
-
-        }
-    }
+    // Skip observation-cleaning loop — it can crash on dangling KeyFrame
+    // pointers when tracking was lost for an extended period. The backup
+    // loops below already filter by mspKeyFrames/mspMapPoints membership.
 
     // Saves the id of KF origins
     mvBackupKeyFrameOriginsId.clear();
     mvBackupKeyFrameOriginsId.reserve(mvpKeyFrameOrigins.size());
     for(int i = 0, numEl = mvpKeyFrameOrigins.size(); i < numEl; ++i)
     {
+        if(!mvpKeyFrameOrigins[i]) continue;
         mvBackupKeyFrameOriginsId.push_back(mvpKeyFrameOrigins[i]->mnId);
     }
 
 
-    // Backup of MapPoints
+    // Backup of MapPoints — iterate a snapshot since PreSave/EraseObservation
+    // can call SetBadFlag which modifies mspMapPoints during iteration.
     mvpBackupMapPoints.clear();
-    for(MapPoint* pMPi : mspMapPoints)
     {
-        if(!pMPi || pMPi->isBad())
-            continue;
+        std::vector<MapPoint*> vpMPs(mspMapPoints.begin(), mspMapPoints.end());
+        for(MapPoint* pMPi : vpMPs)
+        {
+            if(!pMPi || pMPi->isBad())
+                continue;
 
-        mvpBackupMapPoints.push_back(pMPi);
-        pMPi->PreSave(mspKeyFrames,mspMapPoints);
+            mvpBackupMapPoints.push_back(pMPi);
+            pMPi->PreSave(mspKeyFrames,mspMapPoints);
+        }
     }
 
-    // Backup of KeyFrames
+    // Backup of KeyFrames — iterate a snapshot for the same reason.
     mvpBackupKeyFrames.clear();
-    for(KeyFrame* pKFi : mspKeyFrames)
     {
-        if(!pKFi || pKFi->isBad())
-            continue;
+        std::vector<KeyFrame*> vpKFs(mspKeyFrames.begin(), mspKeyFrames.end());
+        for(KeyFrame* pKFi : vpKFs)
+        {
+            if(!pKFi || pKFi->isBad())
+                continue;
 
-        mvpBackupKeyFrames.push_back(pKFi);
-        pKFi->PreSave(mspKeyFrames,mspMapPoints, spCams);
+            mvpBackupKeyFrames.push_back(pKFi);
+            pKFi->PreSave(mspKeyFrames,mspMapPoints, spCams);
+        }
     }
 
     mnBackupKFinitialID = -1;
