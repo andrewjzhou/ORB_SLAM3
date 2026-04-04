@@ -382,8 +382,12 @@ void Map::PreSave(std::set<GeometricCamera*> &spCams)
             if(!pMPi || pMPi->isBad())
                 continue;
 
-            mvpBackupMapPoints.push_back(pMPi);
             pMPi->PreSave(mspKeyFrames,mspMapPoints);
+            // Only save MPs that have at least one valid observation and a
+            // valid reference KF — orphaned MPs cause crashes on load.
+            if(pMPi->GetBackupRefKFId() == static_cast<long unsigned int>(-1))
+                continue;
+            mvpBackupMapPoints.push_back(pMPi);
         }
     }
 
@@ -443,13 +447,26 @@ void Map::PostLoad(KeyFrameDatabase* pKFDB, ORBVocabulary* pORBVoc/*, map<long u
     }
 
     // References reconstruction between different instances
+    std::vector<MapPoint*> vpOrphanMPs;
     for(MapPoint* pMPi : mspMapPoints)
     {
         if(!pMPi || pMPi->isBad())
             continue;
 
         pMPi->PostLoad(mpKeyFrameId, mpMapPointId);
+        if(!pMPi->GetReferenceKeyFrame())
+            vpOrphanMPs.push_back(pMPi);
     }
+    // Remove MapPoints whose reference KF was not found (corrupt backup IDs).
+    // Can't use SetBadFlag here — KFs haven't been PostLoaded yet.
+    for(MapPoint* pMPi : vpOrphanMPs)
+    {
+        pMPi->SetBadFlagDirect();
+        mspMapPoints.erase(pMPi);
+        mpMapPointId.erase(pMPi->mnId);
+    }
+    if(!vpOrphanMPs.empty())
+        cout << "Removed " << vpOrphanMPs.size() << " orphaned MapPoints during load." << endl;
 
     for(KeyFrame* pKFi : mspKeyFrames)
     {

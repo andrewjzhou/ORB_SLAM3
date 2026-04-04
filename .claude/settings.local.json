@@ -37,7 +37,9 @@
       "Bash(timeout 60 ./Examples/Stereo-Inertial/stereo_inertial_indemind --vocab Vocabulary/ORBvoc.txt --settings Examples/Stereo-Inertial/INDEMIND.yaml --data data/indemind_yueju/00 --load-map data/indemind_yueju/00/map --no-viewer --no-realtime)",
       "Bash(gdb -batch -ex run -ex \"bt\" --args ./Examples/Stereo-Inertial/stereo_inertial_indemind --vocab Vocabulary/ORBvoc.txt --settings Examples/Stereo-Inertial/INDEMIND.yaml --data data/indemind_yueju/00 --load-map data/indemind_yueju/00/map --no-viewer --no-realtime)",
       "Bash(./Examples/Stereo-Inertial/stereo_inertial_indemind --vocab Vocabulary/ORBvoc.txt --settings Examples/Stereo-Inertial/INDEMIND.yaml --data data/indemind_office/00_map/ --save-map data/indemind_office/00_map --no-realtime --no-viewer)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(./Examples/Stereo-Inertial/stereo_inertial_indemind --vocab Vocabulary/ORBvoc.txt --settings Examples/Stereo-Inertial/INDEMIND.yaml --data data/indemind_office/00_map/ --load-map data/indemind_office/00_map/map --no-viewer --no-realtime)",
+      "Bash(gdb -batch -ex run -ex \"thread apply all bt\" -ex quit --args ./Examples/Stereo-Inertial/stereo_inertial_indemind --vocab Vocabulary/ORBvoc.txt --settings Examples/Stereo-Inertial/INDEMIND.yaml --data data/indemind_office/00_map/ --load-map data/indemind_office/00_map/map --no-viewer --no-realtime)"
     ]
   }
 }

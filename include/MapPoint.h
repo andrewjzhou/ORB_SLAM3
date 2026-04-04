@@ -129,6 +129,7 @@ public:
     bool IsInKeyFrame(KeyFrame* pKF);
 
     void SetBadFlag();
+    void SetBadFlagDirect(); // lightweight: marks bad without touching KFs
     bool isBad();
 
     void Replace(MapPoint* pMP);    
@@ -206,6 +207,8 @@ public:
     static std::mutex mGlobalMutex;
 
     unsigned int mnOriginMapId;
+
+    long unsigned int GetBackupRefKFId() const { return mBackupRefKFId; }
 
 protected:    
 

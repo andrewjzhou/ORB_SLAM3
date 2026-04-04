@@ -238,6 +238,14 @@ void MapPoint::SetBadFlag()
     mpMap->EraseMapPoint(this);
 }
 
+void MapPoint::SetBadFlagDirect()
+{
+    unique_lock<mutex> lock1(mMutexFeatures);
+    unique_lock<mutex> lock2(mMutexPos);
+    mbBad = true;
+    mObservations.clear();
+}
+
 MapPoint* MapPoint::GetReplaced()
 {
     unique_lock<mutex> lock1(mMutexFeatures);
@@ -592,10 +600,17 @@ void MapPoint::PreSave(set<KeyFrame*>& spKF,set<MapPoint*>& spMP)
         }
     }
 
-    // Save the id of the reference KF
-    if(spKF.find(mpRefKF) != spKF.end())
+    // Save the id of the reference KF.
+    // If mpRefKF isn't in the valid set, fall back to any KF from the
+    // backed-up observations so the MP can be restored on load.
+    mBackupRefKFId = static_cast<long unsigned int>(-1);
+    if(mpRefKF && spKF.find(mpRefKF) != spKF.end())
     {
         mBackupRefKFId = mpRefKF->mnId;
+    }
+    else if(!mBackupObservationsId1.empty())
+    {
+        mBackupRefKFId = mBackupObservationsId1.begin()->first;
     }
 }
 
