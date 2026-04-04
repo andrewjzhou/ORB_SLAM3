@@ -676,6 +676,84 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
     f.close();
 }
 
+void System::SaveTrajectoryCSV(const string &filename)
+{
+    cout << endl << "Saving CSV trajectory to " << filename << " ..." << endl;
+
+    vector<Map*> vpMaps = mpAtlas->GetAllMaps();
+    int numMaxKFs = 0;
+    Map* pBiggerMap = nullptr;
+    for(Map* pMap : vpMaps)
+    {
+        if(pMap->GetAllKeyFrames().size() > numMaxKFs)
+        {
+            numMaxKFs = pMap->GetAllKeyFrames().size();
+            pBiggerMap = pMap;
+        }
+    }
+
+    vector<KeyFrame*> vpKFs = pBiggerMap->GetAllKeyFrames();
+    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+
+    Sophus::SE3f Two = vpKFs[0]->GetPoseInverse();
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+    f << "frame_idx,timestamp,state,is_lost,is_keyframe,x,y,z,q_x,q_y,q_z,q_w" << endl;
+
+    list<ORB_SLAM3::KeyFrame*>::iterator iter_reference_keyframe = mpTracker->mlpReferences.begin();
+    list<double>::iterator iter_timestamp = mpTracker->mlFrameTimes.begin();
+    list<bool>::iterator iter_is_lost = mpTracker->mlbLost.begin();
+    list<Tracking::eTrackingState>::iterator iter_state = mpTracker->mlState.begin();
+    int frame_idx = 0;
+    for(list<Sophus::SE3f>::iterator iter_relative_pose = mpTracker->mlRelativeFramePoses.begin(),
+            iter_end = mpTracker->mlRelativeFramePoses.end();
+        iter_relative_pose != iter_end;
+        iter_relative_pose++, iter_reference_keyframe++, iter_timestamp++, iter_is_lost++, iter_state++, frame_idx++)
+    {
+        f << frame_idx << ',';
+        f << setprecision(6) << *iter_timestamp << ',';
+        f << *iter_state << ',';
+
+        if(*iter_is_lost)
+        {
+            f << "true,false,0,0,0,0,0,0,0" << endl;
+            continue;
+        }
+
+        KeyFrame* pKF = *iter_reference_keyframe;
+        Sophus::SE3f Trw;
+
+        while(pKF->isBad())
+        {
+            Trw = Trw * pKF->mTcp;
+            pKF = pKF->GetParent();
+        }
+
+        if(!pKF || pKF->GetMap() != pBiggerMap)
+        {
+            f << "true,false,0,0,0,0,0,0,0" << endl;
+            continue;
+        }
+
+        bool is_keyframe = (pKF->mTimeStamp == *iter_timestamp);
+
+        Trw = Trw * pKF->GetPose() * Two;
+        Sophus::SE3f Tcw = (*iter_relative_pose) * Trw;
+        Sophus::SE3f Twc = Tcw.inverse();
+
+        Eigen::Vector3f twc = Twc.translation();
+        Eigen::Quaternionf q = Twc.unit_quaternion();
+
+        f << "false," << (is_keyframe ? "true," : "false,");
+        f << setprecision(9) << twc(0) << ',' << twc(1) << ',' << twc(2) << ',';
+        f << q.x() << ',' << q.y() << ',' << q.z() << ',' << q.w() << endl;
+    }
+    f.close();
+    cout << "CSV camera trajectory saved!" << endl;
+}
+
 void System::SaveTrajectoryEuRoC(const string &filename)
 {
 

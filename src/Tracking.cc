@@ -2316,6 +2316,7 @@ void Tracking::Track()
             mlpReferences.push_back(mCurrentFrame.mpReferenceKF);
             mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
             mlbLost.push_back(mState==LOST);
+            mlState.push_back(mState);
         }
         else
         {
@@ -2324,6 +2325,7 @@ void Tracking::Track()
             mlpReferences.push_back(mlpReferences.back());
             mlFrameTimes.push_back(mlFrameTimes.back());
             mlbLost.push_back(mState==LOST);
+            mlState.push_back(mState);
         }
 
     }

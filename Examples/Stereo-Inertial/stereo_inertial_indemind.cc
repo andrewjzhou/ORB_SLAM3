@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 {
     // Parse CLI flags
     string vocabPath, settingsPath, dataDir, fileName;
-    string loadMapPath, saveMapPath;
+    string loadMapPath, saveMapPath, saveDir;
     int maxLostFrames = 100;
     bool bViewer = true;
     bool bFileName = false;
@@ -183,6 +183,7 @@ int main(int argc, char **argv)
         else if (arg == "--save-map"   && i+1 < argc) saveMapPath  = argv[++i];
         else if (arg == "--max-lost"   && i+1 < argc) maxLostFrames = stoi(argv[++i]);
         else if (arg == "--no-realtime")               bNoRealtime = true;
+        else if (arg == "--save-dir"   && i+1 < argc) saveDir      = argv[++i];
         else { cerr << "Unknown argument: " << arg << endl; }
     }
 
@@ -318,13 +319,15 @@ int main(int argc, char **argv)
     SLAM.Shutdown();
 
     // Save trajectories
+    string prefix = saveDir.empty() ? "" : (saveDir.back() == '/' ? saveDir : saveDir + "/");
     if (bFileName) {
-        SLAM.SaveTrajectoryEuRoC("f_"  + fileName + ".txt");
-        SLAM.SaveKeyFrameTrajectoryEuRoC("kf_" + fileName + ".txt");
+        SLAM.SaveTrajectoryEuRoC(prefix + "f_"  + fileName + ".txt");
+        SLAM.SaveKeyFrameTrajectoryEuRoC(prefix + "kf_" + fileName + ".txt");
     } else {
-        SLAM.SaveTrajectoryEuRoC("CameraTrajectory.txt");
-        SLAM.SaveKeyFrameTrajectoryEuRoC("KeyFrameTrajectory.txt");
+        SLAM.SaveTrajectoryEuRoC(prefix + "CameraTrajectory.txt");
+        SLAM.SaveKeyFrameTrajectoryEuRoC(prefix + "KeyFrameTrajectory.txt");
     }
+    SLAM.SaveTrajectoryCSV(prefix + "camera_trajectory.csv");
 
     return 0;
 }
