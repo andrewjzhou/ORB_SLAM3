@@ -167,6 +167,7 @@ int main(int argc, char **argv)
     // Parse CLI flags
     string vocabPath, settingsPath, dataDir, fileName;
     string loadMapPath, saveMapPath, saveDir;
+    string maskLeftPath, maskRightPath;
     int maxLostFrames = 100;
     bool bViewer = true;
     bool bFileName = false;
@@ -184,6 +185,8 @@ int main(int argc, char **argv)
         else if (arg == "--max-lost"   && i+1 < argc) maxLostFrames = stoi(argv[++i]);
         else if (arg == "--no-realtime")               bNoRealtime = true;
         else if (arg == "--save-dir"   && i+1 < argc) saveDir      = argv[++i];
+        else if (arg == "--mask-left"  && i+1 < argc) maskLeftPath  = argv[++i];
+        else if (arg == "--mask-right" && i+1 < argc) maskRightPath = argv[++i];
         else { cerr << "Unknown argument: " << arg << endl; }
     }
 
@@ -197,6 +200,8 @@ int main(int argc, char **argv)
                 "    [--load-map  map_name]         Load atlas at startup\\\n"
                 "    [--max-lost  100]              Max consecutive lost frames before abort\\\n"
                 "    [--no-realtime]                Process as fast as possible\\\n"
+                "    [--mask-left   mask.png]       Mask for left camera\\\n"
+                "    [--mask-right  mask.png]       Mask for right camera\\\n"
                 "    [--no-viewer]\n\n";
         return 1;
     }
@@ -244,6 +249,23 @@ int main(int argc, char **argv)
     // Local mapping stays active — the map is extended as the environment changes.
     // Do NOT call SLAM.ActivateLocalizationMode().
 
+    // Load masks (white pixels = regions to black out)
+    cv::Mat maskLeft, maskRight;
+    if (!maskLeftPath.empty()) {
+        maskLeft = cv::imread(maskLeftPath, cv::IMREAD_GRAYSCALE);
+        if (maskLeft.empty())
+            cerr << "WARNING: could not load left mask: " << maskLeftPath << endl;
+        else
+            cout << "Loaded left mask: " << maskLeftPath << endl;
+    }
+    if (!maskRightPath.empty()) {
+        maskRight = cv::imread(maskRightPath, cv::IMREAD_GRAYSCALE);
+        if (maskRight.empty())
+            cerr << "WARNING: could not load right mask: " << maskRightPath << endl;
+        else
+            cout << "Loaded right mask: " << maskRightPath << endl;
+    }
+
     cout << "\n-------\nStart processing sequence ...\n"
          << "Images in sequence: " << nImages << "\n-------\n";
 
@@ -264,6 +286,10 @@ int main(int argc, char **argv)
             cerr << "Failed to load: " << vstrRight[ni] << endl;
             return 1;
         }
+
+        // Apply masks
+        if (!maskLeft.empty())  imLeft.setTo(cv::Scalar(0), maskLeft);
+        if (!maskRight.empty()) imRight.setTo(cv::Scalar(0), maskRight);
 
         double tframe = vTimestampsCam[ni];
 
